@@ -1,0 +1,1121 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>データ統合実験（Set1→Set2）</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #f5f5f5;
+      height: 100vh;
+      overflow: hidden;
+    }
+    .content-container {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      padding: 10px;
+      box-sizing: border-box;
+      gap: 10px;
+    }
+    .header-bar {
+      border-bottom: 1px solid #ccc;
+      background: white;
+      padding: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      border-radius: 6px;
+    }
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+      flex: 1;
+    }
+    .header-title {
+      font-size: 18px;
+      font-weight: bold;
+      white-space: nowrap;
+    }
+    .dataset-label {
+      font-size: 13px;
+      color: #333;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 520px;
+    }
+    .stage-pill {
+      font-size: 12px;
+      background: #eee;
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid #ddd;
+      white-space: nowrap;
+    }
+    .header-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      white-space: nowrap;
+    }
+    .header-controls label {
+      font-size: 12px;
+      color: #444;
+    }
+    .header-controls input {
+      font-size: 12px;
+      padding: 4px 6px;
+      width: 180px;
+    }
+    button {
+      font-size: 12px;
+      padding: 6px 10px;
+      cursor: pointer;
+    }
+
+    .top-half {
+      display: flex;
+      gap: 10px;
+      flex: 2;          /* 上 2/3 */
+      min-height: 0;
+    }
+    .bottom-half {
+      display: flex;
+      gap: 10px;
+      flex: 1;          /* 下 1/3 */
+      min-height: 0;
+    }
+    .top-column, .bottom-column {
+      flex: 1;
+      background: white;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      padding: 10px;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      min-height: 0;
+    }
+    .upload-prompt {
+      font-size: 12px;
+      margin-bottom: 6px;
+      font-weight: bold;
+    }
+
+    .table-wrapper, .metadata-display, .match-display {
+      flex: 1;
+      width: 100%;
+      height: 100%;
+      overflow: auto;
+      min-width: 0;
+      min-height: 0;
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      font-size: 12px;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 4px 6px;
+      text-align: left;
+      vertical-align: top;
+      white-space: nowrap;
+    }
+    th {
+      background: #f0f0f0;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+    th.row-number {
+      width: 50px;
+      text-align: right;
+      background: #f0f0f0;
+      position: sticky;
+      left: 0;
+      z-index: 2;
+    }
+
+    .metadata-display, .match-display {
+      font-size: 12px;
+      white-space: pre;
+      word-break: break-word;
+    }
+
+    .answer-section {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+    }
+    .answer-title {
+      font-weight: bold;
+      font-size: 14px;
+      margin-bottom: 6px;
+    }
+    .answer-label {
+      font-weight: bold;
+      margin-top: 6px;
+      font-size: 12px;
+    }
+    .answer-input {
+      resize: vertical;
+      font-size: 12px;
+      width: 100%;
+      box-sizing: border-box;
+      min-height: 48px;
+      padding: 4px;
+    }
+    .action-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+    .status {
+      font-size: 12px;
+      color: #0a6;
+      margin-left: auto;
+      white-space: nowrap;
+    }
+    .small-note {
+      font-size: 11px;
+      color: #444;
+      margin-top: 2px;
+      line-height: 1.3;
+    }
+    .danger-note {
+      font-size: 11px;
+      color: #a00;
+      margin-top: 6px;
+      line-height: 1.3;
+      display: none;
+    }
+    .toast {
+      position: fixed;
+      bottom: 16px;
+      right: 16px;
+      background: rgba(0,0,0,0.85);
+      color: #fff;
+      padding: 10px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease-in-out;
+    }
+    .toast.show {
+      opacity: 1;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="content-container">
+    <div class="header-bar">
+      <div class="header-left">
+        <div class="header-title">データ統合実験</div>
+        <div id="stagePill" class="stage-pill">Stage 1 / 4</div>
+        <div id="datasetLabel" class="dataset-label"></div>
+      </div>
+      <div class="header-controls">
+        <label for="participantId">Participant ID:</label>
+        <input id="participantId" type="text" placeholder="e.g., P0123" autocomplete="off" />
+        <button id="nextBtn" type="button">Next</button>
+      </div>
+    </div>
+
+    <div class="top-half">
+      <div class="top-column">
+        <div class="upload-prompt">Table A</div>
+        <div class="table-wrapper" id="tableWrapper1"></div>
+      </div>
+      <div class="top-column">
+        <div class="upload-prompt">Table B</div>
+        <div class="table-wrapper" id="tableWrapper2"></div>
+      </div>
+    </div>
+
+    <div class="bottom-half">
+      <div class="bottom-column">
+        <div class="upload-prompt">Metadata / Description</div>
+        <div class="metadata-display" id="metadataDisplay"></div>
+      </div>
+      <div class="bottom-column" id="matchColumn">
+        <div class="upload-prompt">Matching Recommendation (SM + ER)</div>
+        <div class="match-display" id="matchDisplay"></div>
+      </div>
+      <div class="bottom-column">
+        <div class="answer-section">
+          <div class="answer-title">マッチング回答欄</div>
+          <div class="small-note">
+            「Submit」を押すと回答がブラウザ内に保存されます（このPC/ブラウザにのみ保存）。
+            必要に応じて「Export」または「Copy」で回収できます。
+          </div>
+          <div class="danger-note" id="storageWarning">
+            注意: このブラウザでは localStorage が利用できない可能性があります。少なくとも「Copy」を使って回答を控えてください。
+          </div>
+
+          <label class="answer-label" for="smAnswer">SM:</label>
+          <textarea id="smAnswer" class="answer-input" placeholder="SMに対する回答を入力してください"></textarea>
+
+          <label class="answer-label" for="erAnswer">ER:</label>
+          <textarea id="erAnswer" class="answer-input" placeholder="ERに対する回答を入力してください"></textarea>
+
+          <div class="action-row">
+            <button id="submitAnswer" type="button">Submit (Save)</button>
+            <button id="exportAll" type="button">Export Saved Answers (JSON)</button>
+            <button id="copyAll" type="button">Copy Saved Answers</button>
+            <button id="clearAll" type="button">Clear Saved Answers</button>
+            <div id="saveStatus" class="status"></div>
+          </div>
+
+          <div class="small-note">
+            提出（サーバへ送信）まで行う場合は、別途エンドポイントが必要です（本HTMLは静的サイト想定のため、既定ではローカル保存のみ）。
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <!-- ---------- Embedded datasets as inert text blocks (robust for web hosting) ---------- -->
+  <script type="text/plain" id="ds_set1_tableA">PO_Number,Outlet,Supplier,ItemName,PackSpec,Quantity,OrderDate
+PO-2025-96585,Ramen Kura,Kanto Fresh,Pork belly,3 kg slab,3.8,2025-04-20
+PO-2025-30131,Maple Café,BlueRiver Imports,Roma tomatoes,5 kg crate,13.4,2025-02-28
+PO-2025-36171,Star Sushi Bar,Metro Produce,Pork belly,3 kg slab,6.0,2025-02-27
+PO-2024-72071,Star Sushi Bar,Kanto Fresh,Paper napkins,200 ct pack,12.5,2025-06-08
+PO-2025-21945,Curry House M,Nippon Spice Works,Chicken breast,2 kg pack,11.8,2025-04-14
+PO-2025-34455,Sunset Bistro,Metro Produce,Atlantic salmon,1.5 kg fillet,13.8,2025-02-12
+PO-2024-45200,Nordic Bake,Metro Produce,Chicken breast,2 kg pack,22.8,2025-09-07
+PO-2024-21233,Bella Trattoria,Golden Grain Supply,Olive oil,1 L bottle,29.2,2025-07-29
+PO-2024-82561,Maple Café,Nippon Spice Works,Takeout containers,50 ct sleeve,16.2,2025-07-02
+PO-2025-85066,Green Bowl Deli,Hokkaido Veggies,Atlantic salmon,1.5 kg fillet,3.3,2025-10-01
+PO-2024-75811,Nordic Bake,Golden Grain Supply,Paper napkins,200 ct pack,17.6,2025-08-14
+PO-2024-25765,Sunset Bistro,Pacific Seafoods,Chicken breast,2 kg pack,29.2,2025-11-18
+PO-2024-26539,Maple Café,Nippon Spice Works,Baby spinach,1 kg bag,29.7,2025-05-11
+PO-2024-92211,Harbor Grill,Sakura Packaging,Atlantic salmon,1.5 kg fillet,10.3,2025-10-08
+PO-2024-21406,Tokyo Tapas,Golden Grain Supply,Olive oil,1 L bottle,17.0,2025-02-19
+PO-2025-11620,Nordic Bake,Sakura Packaging,Basmati rice,10 kg sack,23.7,2024-11-27
+PO-2025-29613,Harbor Grill,Sakura Packaging,Pasta (spaghetti),5 kg case,17.9,2024-11-21
+PO-2024-83752,Star Sushi Bar,Kanto Fresh,Takeout containers,50 ct sleeve,16.5,2025-03-26
+PO-2025-44620,Tokyo Tapas,Hokkaido Veggies,Pasta (spaghetti),5 kg case,18.7,2024-10-20
+PO-2024-46099,Tokyo Tapas,Pacific Seafoods,Pasta (spaghetti),5 kg case,18.7,2025-09-21
+PO-2025-15083,Tokyo Tapas,BlueRiver Imports,Greek yogurt,5 kg tub,7.9,2025-10-17
+PO-2025-45203,Bella Trattoria,Metro Produce,Shrimp (16/20),2 kg box,24.7,2025-03-05
+PO-2025-46745,Sunset Bistro,Sunrise Dairy Co.,Takeout containers,50 ct sleeve,7.6,2025-03-03
+PO-2025-52056,Ramen Kura,Nippon Spice Works,Pasta (spaghetti),5 kg case,19.7,2025-01-05
+PO-2025-37707,Tokyo Tapas,Hokkaido Veggies,Paper napkins,200 ct pack,16.0,2025-04-10
+PO-2024-77537,Harbor Grill,Sunrise Dairy Co.,Atlantic salmon,1.5 kg fillet,21.6,2025-04-25
+PO-2024-78719,Nordic Bake,Metro Produce,Chicken breast,2 kg pack,6.6,2025-01-11
+PO-2024-42701,Maple Café,Hokkaido Veggies,Roma tomatoes,5 kg crate,27.6,2025-09-26
+PO-2024-45910,Bella Trattoria,Hokkaido Veggies,Basmati rice,10 kg sack,12.5,2024-12-03
+PO-2024-41711,Bella Trattoria,Hokkaido Veggies,Pasta (spaghetti),5 kg case,13.9,2025-05-31
+PO-2025-55121,Harbor Grill,Kanto Fresh,Greek yogurt,5 kg tub,25.1,2024-11-16
+PO-2025-13597,Tokyo Tapas,Metro Produce,Chicken breast,2 kg pack,25.8,2025-11-04
+PO-2024-39012,Green Bowl Deli,Prime Meats Ltd,Atlantic salmon,1.5 kg fillet,19.9,2025-06-20
+PO-2024-99417,Maple Café,Hokkaido Veggies,Chicken breast,2 kg pack,19.8,2025-08-04
+PO-2024-39329,Ramen Kura,Sakura Packaging,Paper napkins,200 ct pack,28.3,2025-09-30
+PO-2025-65549,Tokyo Tapas,BlueRiver Imports,Soy sauce,1 L bottle,8.3,2025-05-27
+PO-2025-98761,Curry House M,Sakura Packaging,Olive oil,1 L bottle,18.0,2024-10-04
+PO-2025-83591,Nordic Bake,Sakura Packaging,Atlantic salmon,1.5 kg fillet,9.7,2024-11-25
+PO-2025-18367,Bella Trattoria,Kanto Fresh,Mozzarella,2 kg block,10.4,2025-02-19
+PO-2025-95998,Ramen Kura,Prime Meats Ltd,Chicken breast,2 kg pack,16.0,2025-02-01
+PO-2024-88647,Tokyo Tapas,BlueRiver Imports,Mozzarella,2 kg block,5.1,2024-10-14
+PO-2025-48745,Ramen Kura,Nippon Spice Works,Olive oil,1 L bottle,12.3,2024-10-19
+PO-2024-54979,Green Bowl Deli,Golden Grain Supply,Mozzarella,2 kg block,23.8,2025-09-09
+PO-2025-76494,Ramen Kura,Pacific Seafoods,Takeout containers,50 ct sleeve,20.1,2025-07-13
+PO-2024-48506,Star Sushi Bar,Hokkaido Veggies,Chicken breast,2 kg pack,22.5,2025-10-07
+PO-2024-99091,Bella Trattoria,Sunrise Dairy Co.,Pork belly,3 kg slab,11.3,2025-10-17
+PO-2025-65112,Bella Trattoria,BlueRiver Imports,Atlantic salmon,1.5 kg fillet,18.0,2025-05-26
+PO-2024-71674,Maple Café,Sakura Packaging,Pasta (spaghetti),5 kg case,28.4,2024-11-06
+PO-2025-35499,Curry House M,Sunrise Dairy Co.,Takeout containers,50 ct sleeve,20.7,2025-06-29
+PO-2025-64146,Maple Café,Pacific Seafoods,Chicken breast,2 kg pack,29.8,2025-03-25
+PO-2025-84632,Sunset Bistro,Pacific Seafoods,Shrimp (16/20),2 kg box,26.0,2025-01-01
+PO-2024-73908,Bella Trattoria,Pacific Seafoods,Shrimp (16/20),2 kg box,19.4,2024-10-03
+PO-2025-45851,Green Bowl Deli,Pacific Seafoods,Pasta (spaghetti),5 kg case,23.2,2025-06-08
+PO-2024-26961,Nordic Bake,Nippon Spice Works,Mozzarella,2 kg block,13.5,2025-05-08
+PO-2025-60242,Maple Café,Metro Produce,Basmati rice,10 kg sack,6.8,2025-04-10
+PO-2024-52233,Curry House M,Prime Meats Ltd,Roma tomatoes,5 kg crate,20.6,2025-08-17
+PO-2024-39657,Bella Trattoria,Kanto Fresh,Chicken breast,2 kg pack,4.0,2025-06-15
+PO-2025-31891,Star Sushi Bar,Metro Produce,Atlantic salmon,1.5 kg fillet,28.5,2025-05-22
+PO-2025-66841,Harbor Grill,BlueRiver Imports,Soy sauce,1 L bottle,11.4,2025-01-05
+PO-2024-62873,Maple Café,Prime Meats Ltd,Pork belly,3 kg slab,22.1,2024-12-07
+PO-2024-12872,Nordic Bake,Golden Grain Supply,Chicken breast,2 kg pack,4.6,2025-09-30
+PO-2024-59177,Ramen Kura,Golden Grain Supply,Pasta (spaghetti),5 kg case,2.4,2024-10-25
+PO-2024-95664,Maple Café,Metro Produce,Greek yogurt,5 kg tub,4.4,2025-05-16
+PO-2025-26199,Curry House M,Kanto Fresh,Soy sauce,1 L bottle,21.4,2025-01-14
+PO-2024-49467,Tokyo Tapas,Sunrise Dairy Co.,Mozzarella,2 kg block,16.1,2025-08-15
+PO-2024-64896,Star Sushi Bar,Golden Grain Supply,Greek yogurt,5 kg tub,18.9,2025-02-22
+PO-2024-23928,Sunset Bistro,Prime Meats Ltd,Pasta (spaghetti),5 kg case,6.8,2025-02-12
+PO-2024-56913,Tokyo Tapas,Kanto Fresh,Chicken breast,2 kg pack,2.1,2025-06-12
+PO-2024-73001,Bella Trattoria,Prime Meats Ltd,Roma tomatoes,5 kg crate,1.4,2024-11-15
+PO-2024-85255,Sunset Bistro,Pacific Seafoods,Baby spinach,1 kg bag,23.6,2024-11-08
+PO-2024-43540,Green Bowl Deli,Hokkaido Veggies,Atlantic salmon,1.5 kg fillet,8.7,2024-10-26
+PO-2024-32898,Maple Café,Kanto Fresh,Shrimp (16/20),2 kg box,24.2,2025-03-10
+PO-2025-25191,Star Sushi Bar,Metro Produce,Roma tomatoes,5 kg crate,25.7,2025-09-05
+PO-2024-53078,Bella Trattoria,Hokkaido Veggies,Pasta (spaghetti),5 kg case,8.8,2025-10-11
+PO-2024-58840,Bella Trattoria,Pacific Seafoods,Baby spinach,1 kg bag,12.6,2025-05-22
+PO-2025-60556,Sunset Bistro,Nippon Spice Works,Mozzarella,2 kg block,26.7,2024-12-25
+PO-2024-27368,Maple Café,Pacific Seafoods,Baby spinach,1 kg bag,13.1,2025-07-30
+PO-2025-84572,Sunset Bistro,Pacific Seafoods,Pasta (spaghetti),5 kg case,12.0,2025-04-02
+PO-2024-99714,Harbor Grill,Hokkaido Veggies,Soy sauce,1 L bottle,4.3,2025-04-29
+PO-2025-16025,Star Sushi Bar,Kanto Fresh,Mozzarella,2 kg block,10.1,2025-09-26
+PO-2024-97797,Bella Trattoria,Golden Grain Supply,Basmati rice,10 kg sack,21.0,2025-08-13
+PO-2024-66734,Green Bowl Deli,Hokkaido Veggies,Shrimp (16/20),2 kg box,20.2,2025-08-25
+PO-2025-29484,Curry House M,Sakura Packaging,Roma tomatoes,5 kg crate,1.3,2024-12-20
+PO-2025-74990,Harbor Grill,Sunrise Dairy Co.,Paper napkins,200 ct pack,15.3,2025-02-01
+PO-2025-46458,Maple Café,Golden Grain Supply,Pork belly,3 kg slab,17.0,2025-04-12
+PO-2025-40801,Star Sushi Bar,Hokkaido Veggies,Soy sauce,1 L bottle,24.2,2025-05-18
+PO-2024-75333,Sunset Bistro,BlueRiver Imports,Baby spinach,1 kg bag,29.4,2025-10-17
+PO-2024-23453,Tokyo Tapas,Nippon Spice Works,Roma tomatoes,5 kg crate,17.2,2024-10-01
+PO-2024-89194,Nordic Bake,Kanto Fresh,Basmati rice,10 kg sack,17.3,2025-09-01
+PO-2025-54676,Bella Trattoria,Metro Produce,Takeout containers,50 ct sleeve,7.5,2025-05-21
+PO-2025-83420,Nordic Bake,Sakura Packaging,Soy sauce,1 L bottle,21.8,2025-04-05
+PO-2025-24945,Star Sushi Bar,Prime Meats Ltd,Roma tomatoes,5 kg crate,10.9,2025-11-29
+PO-2025-81786,Curry House M,BlueRiver Imports,Greek yogurt,5 kg tub,4.1,2024-12-24
+PO-2025-28408,Tokyo Tapas,Sunrise Dairy Co.,Atlantic salmon,1.5 kg fillet,18.7,2025-01-05
+PO-2024-61497,Green Bowl Deli,Hokkaido Veggies,Takeout containers,50 ct sleeve,23.7,2025-10-02
+PO-2025-24125,Tokyo Tapas,Metro Produce,Mozzarella,2 kg block,25.3,2025-07-29
+PO-2024-69048,Sunset Bistro,Sakura Packaging,Basmati rice,10 kg sack,4.9,2025-06-13
+PO-2024-79515,Maple Café,Golden Grain Supply,Olive oil,1 L bottle,25.3,2025-06-05
+PO-2024-85832,Harbor Grill,Pacific Seafoods,Baby spinach,1 kg bag,12.2,2025-08-04
+PO-2025-76074,Tokyo Tapas,Nippon Spice Works,Pasta (spaghetti),5 kg case,27.6,2025-10-26</script>
+  <script type="text/plain" id="ds_set1_tableB">PO_Ref,StoreName,VendorName,SKU_Description,Category,QtyOrdered,NetAmount
+PO/2024/45860,Tokyo Tapas,BlueRiver Imports,ATLANTIC SALMON,Seafood,14.1,USD 190.83
+PO#2024-36330,Green Bowl Deli,SAKURA PACKAGING,GREEK YOGURT,Dairy,qty 9.4,USD 134.34
+PO#2025-86389,Nordic Bake (Main),Nippon Spice Works,Mozzarella - 2 kg block,Dairy,qty 22.7,USD 190.76
+PO/2024/97851,Maple Café,Prime Meats Ltd,Atlantic salmon (1.5 kg fillet),Seafood,qty 22.8,USD 301.06
+PO2025-36738,Curry House M,Metro Produce,Shrimp (16/20) (2 kg box),Seafood,24.6,USD 325.72
+PO#2024-60014,TOKYO TAPAS,Nippon Spice Works,PAPER NAPKINS,Supplies,29.3 pcs,USD 355.08
+PO/2024/72071,Star Sushi Bar Outlet,Kanto Fresh,Paper napkins (200 ct pack),Supplies,12.5 pcs,$146.31
+PO-2024-34507,Harbor Grill,Golden Grain Supply,Baby spinach (1 kg bag),Produce,11.9 pcs,USD 137.47
+PO2025-10739,Bella Trattoria,Hokkaido Veggies,Greek yogurt - 5 kg tub,Dairy,28.2,USD 284.92
+PO2025-19552,Bella Trattoria,Golden Grain Supply,Pork belly,Meat,qty 28.8,USD 227.97
+PO-2024-96944,BELLA TRATTORIA,BlueRiver Imports,SHRIMP (16/20),Seafood,9.5 units,USD 59.14
+PO-2024-15226,Bella Trattoria,Nippon Spice Works,Paper napkins - 200 ct pack,Supplies,28.4,USD 297.4
+PO2025-73806,MAPLE CAFÉ,KANTO FRESH,Mozzarella - 2 kg block,Dairy,qty 6.6,USD 38.06
+PO-2024-99837,TOKYO TAPAS,SUNRISE DAIRY CO.,Pork belly - 3 kg slab,Meat,16.6 units,USD 225.95
+PO2024-26539,Maple Café Outlet,NIPPON SPICE WORKS,BABY SPINACH,Produce,29.7 pcs,$361.13
+PO2025-66757,BELLA TRATTORIA,Metro Produce,Olive oil - 1 L bottle,Pantry,20.5,USD 346.14
+PO-2024-47989,Ramen Kura (Main),Sakura Packaging,Baby spinach - 1 kg bag,Produce,9.2 units,USD 45.29
+PO/2024/27875,Tokyo Tapas,Golden Grain Supply,Atlantic salmon - 1.5 kg fillet,Seafood,28.8 pcs,USD 127.01
+PO2024-85067,Nordic Bake,NIPPON SPICE WORKS,BASMATI RICE,Dry goods,16.9 pcs,USD 150.34
+PO/2024/31096,HARBOR GRILL,PRIME MEATS LTD,Pasta (spaghetti) - 5 kg case,Dry goods,25.2 units,USD 314.81
+PO-2024-48096,Star Sushi Bar,Kanto Fresh,Baby spinach (1 kg bag),Produce,6.7 pcs,USD 27.14
+PO/2024/77537,HARBOR GRILL,SUNRISE DAIRY CO.,Atl. salmon,Seafood,21.6 pcs,$106.23
+PO/2025/42266,Green Bowl Deli,Nippon Spice Works,Atlantic salmon,Seafood,25.4 units,USD 204.74
+PO2025-73828,Curry House M,SUNRISE DAIRY CO.,Chicken breast (2 kg pack),Meat,19.7,USD 273.24
+PO-2024-19882,Maple Cafe,Golden Grain Supply,MOZZARELLA,Dairy,1.9 units,USD 24.01
+PO#2024-57948,Tokyo Tapas,Prime Meats Ltd,Paper napkins - 200 ct pack,Supplies,18.1 units,USD 147.33
+PO/2024/96858,Green Bowl Deli (Main),SAKURA PACKAGING,Mozzarella (2 kg block),Dairy,5.8 pcs,USD 80.66
+PO2025-57028,Maple Café,Prime Meats Ltd,Paper napkins (200 ct pack),Supplies,qty 15.1,USD 194.23
+PO#2025-60868,SUNSET BISTRO,Hokkaido Veggies,ROMA TOMATOES,Produce,2.2 pcs,USD 18.34
+PO/2025/57880,Nordic Bake (Main),Sunrise Dairy Co.,BASMATI RICE,Dry goods,8.3 units,USD 122.73
+PO#2024-75776,Harbor Grill,HOKKAIDO VEGGIES,Chicken breast (2 kg pack),Meat,7.7 pcs,USD 62.48
+PO2024-96652,Green Bowl Deli (Main),Nippon Spice Works,Paper napkins,Supplies,10.6 pcs,USD 123.57
+PO/2025/12942,Green Bowl Deli,Metro Produce,Chicken breast (2 kg pack),Meat,qty 17.6,USD 89.38
+PO#2024-77717,TOKYO TAPAS,SAKURA PACKAGING,Pasta - spaghetti,Dry goods,19.5 units,USD 310.89
+PO/2024/38752,Tokyo Tapas,SAKURA PACKAGING,CHICKEN BREAST,Meat,24.0 units,USD 281.91
+PO/2024/40122,Tokyo Tapas (Main),NIPPON SPICE WORKS,Chicken breast - 2 kg pack,Meat,4.1 pcs,USD 40.49
+PO/2024/79655,CURRY HOUSE M,Sunrise Dairy Co.,Baby spinach,Produce,15.0,USD 240.9
+PO2025-40079,Sunset Bistro (Main),NIPPON SPICE WORKS,SHRIMP (16/20),Seafood,18.1 units,USD 260.11
+PO2024-47128,NORDIC BAKE,Golden Grain Supply,Olive oil - 1 L bottle,Pantry,8.5 units,USD 107.49
+PO#2025-63588,Bella Trattoria,Sunrise Dairy Co.,CHICKEN BREAST,Meat,13.4,USD 239.5
+PO-2025-83591,NORDIC BAKE,SAKURA PACKAGING,Atlantic salmon - 1.5 kg fillet,Seafood,qty 9.7,$166.92
+PO/2025/28096,STAR SUSHI BAR,PRIME MEATS LTD,Soy sauce,Pantry,23.7,USD 353.44
+PO/2024/31068,Tokyo Tapas (Main),Metro Produce,Paper napkins - 200 ct pack,Supplies,qty 3.6,USD 23.68
+PO-2025-20490,Nordic Bake,Metro Produce,Greek yogurt (5 kg tub),Dairy,12.1 units,USD 112.58
+PO/2024/96099,Curry House M,Kanto Fresh,PORK BELLY,Meat,2.0 pcs,USD 25.31
+PO-2024-21382,Ramen Kura,Nippon Spice Works,Shrimp (16/20) - 2 kg box,Seafood,qty 20.4,USD 224.78
+PO-2025-55544,Ramen Kura (Main),Prime Meats Limited,PASTA (SPAGHETTI),Dry goods,28.9 pcs,USD 254.63
+PO2024-83220,Star Sushi Bar,Golden Grain Supply,Atlantic salmon,Seafood,10.9 units,USD 122.4
+PO-2024-54520,SUNSET BISTRO,Hokkaido Veggies,Pasta (spaghetti) - 5 kg case,Dry goods,26.0 units,USD 320.37
+PO2024-98724,Green Bowl Deli,BLUERIVER IMPORTS,OLIVE OIL,Pantry,qty 28.7,USD 249.21
+PO/2025/19965,Curry House M,PACIFIC SEAFOODS,Soy sauce (1 L bottle),Pantry,10.1 units,USD 140.64
+PO2025-60242,Maple Café Outlet,METRO PRODUCE,BASMATI RICE,Dry Goods,qty 6.8,$49.16
+PO#2025-90455,Maple Café,Golden Grain Supply,ROMA TOMATOES,Produce,25.6 units,USD 136.56
+PO-2025-62150,Green Bowl Deli (Main),Sakura Packaging,CHICKEN BREAST,Meat,2.6 units,USD 41.17
+PO2024-69925,STAR SUSHI BAR,GOLDEN GRAIN SUPPLY,Soy sauce,Pantry,qty 10.2,USD 76.95
+PO#2025-34530,Curry House M,KANTO FRESH,Pork belly,Meat,8.8 units,USD 50.72
+PO/2025/57851,Tokyo Tapas,Kanto Fresh,SOY SAUCE,Pantry,6.2 pcs,USD 68.87
+PO/2025/35698,Harbor Grill (Main),Pacific Seafoods,Soy sauce (1 L bottle),Pantry,24.4,USD 358.01
+PO/2025/42895,CURRY HOUSE M,SAKURA PACKAGING,ROMA TOMATOES,Produce,12.6 units,USD 195.35
+PO#2024-68963,Bella Trattoria,Kanto Fresh,Shrimp - 16/20,Seafood,qty 11.4,USD 90.54
+PO#2024-85609,Nordic Bake,Golden Grain Supply,Chicken breast,Meat,29.4 units,USD 478.91
+PO/2025/90434,Ramen Kura,Hokkaido Veggies,Mozzarella,Dairy,qty 28.7,USD 106.94
+PO#2025-39912,Bella Trattoria (Main),BlueRiver Imports,Mozzarella,Dairy,9.4,USD 132.47
+PO/2025/64262,Harbor Grill,Pacific Seafoods,Takeout containers (50 ct sleeve),Supplies,1.7 pcs,USD 14.71
+PO-2024-18361,SUNSET BISTRO,Golden Grain Supply,ROMA TOMATOES,Produce,1.8 pcs,USD 6.85
+PO/2025/50549,Green Bowl Deli,PRIME MEATS LTD,Greek yogurt - 5 kg tub,Dairy,qty 9.2,USD 117.62
+PO/2025/72410,Sunset Bistro,Golden Grain Supply,Atlantic salmon,Seafood,16.9,USD 280.34
+PO-2025-80735,Green Bowl Deli,SUNRISE DAIRY CO.,SOY SAUCE,Pantry,qty 9.9,USD 24.76
+PO-2024-55073,Ramen Kura (Main),Hokkaido Veggies,Basmati rice - 10 kg sack,Dry goods,1.2 units,USD 17.84
+PO/2024/23928,SUNSET BISTRO,Prime Meats Limited,Pasta (spaghetti),Dry Goods,6.8,$39.33
+PO#2024-44469,Star Sushi Bar,Nippon Spice Works,Mozzarella,Dairy,7.9 pcs,USD 124.26
+PO-2024-27907,Ramen Kura,Sunrise Dairy Co.,Mozzarella (2 kg block),Dairy,14.2,USD 39.77
+PO/2024/80119,Maple Café (Main),Pacific Seafoods,Baby spinach (1 kg bag),Produce,qty 9.2,USD 44.49
+PO-2024-99714,Harbor Grill Outlet,Hokkaido Veggies,SOY SAUCE,Pantry,4.3,$76.89
+PO/2024/17345,Ramen Kura,Nippon Spice Works,Baby spinach,Produce,qty 16.8,USD 73.76
+PO/2024/60436,Sunset Bistro (Main),Prime Meats Limited,Greek yogurt (5 kg tub),Dairy,29.8 units,USD 254.24
+PO2025-52344,Harbor Grill,Metro Produce,GREEK YOGURT,Dairy,28.2 pcs,USD 228.04
+PO#2024-97385,GREEN BOWL DELI,SUNRISE DAIRY CO.,PORK BELLY,Meat,qty 19.4,USD 167.52
+PO/2024/11170,Maple Café,Sakura Packaging,Paper napkins (200 ct pack),Supplies,21.0 pcs,USD 215.22
+PO2025-91937,Maple Cafe,Metro Produce,Shrimp (16/20) (2 kg box),Seafood,19.7,USD 349.0
+PO/2025/67503,Green Bowl Deli,Metro Produce,Greek yogurt,Dairy,12.0 units,USD 133.98
+PO-2025-34874,Nordic Bake,PACIFIC SEAFOODS,Basmati rice - 10 kg sack,Dry goods,11.1 pcs,USD 105.07
+PO-2025-80989,Bella Trattoria,Hokkaido Veggies,ROMA TOMATOES,Produce,23.5 pcs,USD 175.56
+PO-2024-96283,Curry House M,Nippon Spice Works,PORK BELLY,Meat,16.2 units,USD 201.43
+PO/2024/22616,Curry House M,Sunrise Dairy Company,Roma tomatoes (5 kg crate),Produce,qty 25.2,USD 252.59
+PO#2024-14170,NORDIC BAKE,Nippon Spice Works,Mozzarella (2 kg block),Dairy,qty 15.2,USD 41.08
+PO2024-95950,Sunset Bistro,Sunrise Dairy Co.,SOY SAUCE,Pantry,qty 24.2,USD 369.45
+PO-2025-24945,STAR SUSHI BAR,Prime Meats Limited,Roma tomatoes,Produce,10.9,$34.60
+PO2024-84714,Harbor Grill,Golden Grain Supply,Greek yogurt,Dairy,qty 17.2,USD 87.47
+PO-2024-82085,Tokyo Tapas,Golden Grain Supply,SHRIMP (16/20),Seafood,20.1,USD 178.72
+PO-2025-52395,Nordic Bake,Prime Meats Ltd,Pasta - spaghetti,Dry goods,16.8 units,USD 291.94
+PO#2024-14543,RAMEN KURA,Sakura Packaging,Roma tomatoes (5 kg crate),Produce,16.0 pcs,USD 252.22
+PO/2024/46170,CURRY HOUSE M,Golden Grain Supply,Basmati rice,Dry goods,17.5,USD 86.09
+PO#2025-58114,NORDIC BAKE,Prime Meats Ltd,Pork belly (3 kg slab),Meat,qty 8.4,USD 115.21
+PO#2025-32662,SUNSET BISTRO,Sakura Packaging,Takeout containers - 50 ct sleeve,Supplies,qty 27.3,USD 458.34
+PO/2025/55603,TOKYO TAPAS,Nippon Spice Works,Takeout containers - 50 ct sleeve,Supplies,4.5,USD 47.83
+PO/2025/80769,Nordic Bake,Pacific Seafoods,Shrimp - 16/20,Seafood,15.6 units,USD 221.04
+PO/2024/39109,Tokyo Tapas,Kanto Fresh,Paper napkins,Supplies,qty 12.4,USD 136.35
+PO/2025/21151,Tokyo Tapas,Golden Grain Supply,Olive oil (1 L bottle),Pantry,23.4 units,USD 201.88
+PO#2024-83553,Nordic Bake (Main),Golden Grain Supply,Pork belly - 3 kg slab,Meat,qty 8.0,USD 103.3</script>
+  <script type="text/plain" id="ds_set1_desc">A_PO_Number, Purchase order reference in Table A (typically uses hyphenated format).
+A_Outlet, Ordering outlet name in Table A.
+A_Supplier, Supplier/vendor name in Table A.
+A_ItemName, Item name recorded in Table A.
+A_PackSpec, Pack size or packaging specification in Table A.
+A_Quantity, Ordered quantity in Table A (numeric).
+A_OrderDate, Order date in Table A (YYYY-MM-DD).
+
+B_PO_Ref, Purchase order reference in Table B (may use alternate formats such as slashes or missing hyphens).
+B_StoreName, Outlet name in Table B (may include suffixes or casing differences).
+B_VendorName, Supplier name in Table B (may be abbreviated or differently cased).
+B_SKU_Description, Product description in Table B (may merge item and pack details).
+B_Category, Product category in Table B (taxonomy may differ from Table A).
+B_QtyOrdered, Ordered quantity in Table B (often embedded in text).
+B_NetAmount, Net line amount in Table B (currency text may be included).</script>
+  <script type="text/plain" id="ds_set1_match">SM
+A_PO_Number, B_PO_Ref
+A_Outlet, B_StoreName
+A_Supplier, B_VendorName
+A_ItemName, B_SKU_Description
+A_Quantity, B_QtyOrdered
+
+ER
+A_4, B_7
+A_13, B_15
+A_26, B_22
+A_38, B_41
+A_55, B_52
+A_67, B_70
+A_79, B_74
+A_92, B_88</script>
+
+  <script type="text/plain" id="ds_set2_tableA">SpotName,City,Region,Category,VisitTimeMin,AdmissionJPY,NearestTransit
+Senso-ji Temple,Taito,Tokyo,Temple,60,0,JR Shinjuku Sta.
+Itsukushima Shrine,Hatsukaichi,Hiroshima,Shrine,120,500,Bus stop Riverside
+Kenroku-en Garden,Kanazawa,Ishikawa,Garden,90,520,—
+Kiyomizu-dera,Higashiyama,Kyoto,Temple,45,400,Bus stop East Gate
+Kenroku-en Garden,Kanazawa,Ishikawa,Garden,90,320,Subway Line M
+Senso-ji Temple,Taito,Tokyo,Temple,45,0,JR Kyoto Sta.
+Meiji Jingu,Shibuya,Tokyo,Shrine,120,0,JR Shinjuku Sta.
+Meiji Jingu,Shibuya,Tokyo,Shrine,120,0,Bus stop East Gate
+Otaru Canal,Otaru,Hokkaido,Scenic,150,0,JR Shinjuku Sta.
+Tokyo Skytree,Sumida,Tokyo,Observation,30,2200,Metro Line 2
+Gion District,Higashiyama,Kyoto,District,120,0,Bus stop Central
+Itsukushima Shrine,Hatsukaichi,Hiroshima,Shrine,150,400,JR Osaka Sta.
+Nara Park,Nara,Nara,Park,45,0,Subway Line M
+Kenroku-en Garden,Kanazawa,Ishikawa,Garden,30,420,JR Shinjuku Sta.
+Kiyomizu-dera,Higashiyama,Kyoto,Temple,30,400,Bus stop Central
+Fushimi Inari Taisha,Fushimi,Kyoto,Shrine,150,0,—
+Meiji Jingu,Shibuya,Tokyo,Shrine,60,0,JR Osaka Sta.
+Ueno Zoo,Taito,Tokyo,Zoo,150,600,—
+Dotonbori Canal Walk,Chuo,Osaka,District,120,0,Bus stop East Gate
+Senso-ji Temple,Taito,Tokyo,Temple,45,0,JR Nara Sta.
+Gion District,Higashiyama,Kyoto,District,45,0,Subway Line 2
+Himeji Castle,Himeji,Hyogo,Castle,45,1200,JR Tokyo Sta.
+Senso-ji Temple,Taito,Tokyo,Temple,30,0,JR Nara Sta.
+Kenroku-en Garden,Kanazawa,Ishikawa,Garden,60,420,Subway Line 2
+Osaka Castle,Chuo,Osaka,Castle,30,600,—
+Osaka Castle,Chuo,Osaka,Castle,90,800,JR Tokyo Sta.
+Nara Park,Nara,Nara,Park,60,0,Tram Line A
+Ueno Zoo,Taito,Tokyo,Zoo,45,600,—
+Ueno Zoo,Taito,Tokyo,Zoo,150,700,Metro Line M
+Nara Park,Nara,Nara,Park,45,0,Tram Line A
+Dotonbori Canal Walk,Chuo,Osaka,District,120,0,—
+Itsukushima Shrine,Hatsukaichi,Hiroshima,Shrine,150,400,—
+Ueno Zoo,Taito,Tokyo,Zoo,120,800,Subway Line A
+Kenroku-en Garden,Kanazawa,Ishikawa,Garden,150,320,Tram Line M
+Osaka Castle,Chuo,Osaka,Castle,120,600,Tram Line A
+Itsukushima Shrine,Hatsukaichi,Hiroshima,Shrine,90,500,—
+Ueno Zoo,Taito,Tokyo,Zoo,90,700,Bus stop East Gate
+Nara Park,Nara,Nara,Park,30,0,Bus stop East Gate
+Meiji Jingu,Shibuya,Tokyo,Shrine,45,0,Bus stop East Gate
+Himeji Castle,Himeji,Hyogo,Castle,120,1000,Tram Line M
+Dotonbori Canal Walk,Chuo,Osaka,District,45,0,Subway Line A
+Dotonbori Canal Walk,Chuo,Osaka,District,90,0,JR Osaka Sta.
+Meiji Jingu,Shibuya,Tokyo,Shrine,150,0,—
+Dotonbori Canal Walk,Chuo,Osaka,District,120,0,—
+Senso-ji Temple,Taito,Tokyo,Temple,90,0,—
+Otaru Canal,Otaru,Hokkaido,Scenic,150,0,—
+Itsukushima Shrine,Hatsukaichi,Hiroshima,Shrine,60,300,—
+Ueno Zoo,Taito,Tokyo,Zoo,150,600,Tram Line 2
+Kiyomizu-dera,Higashiyama,Kyoto,Temple,30,500,JR Tokyo Sta.
+Okinawa Churaumi Aquarium,Motobu,Okinawa,Aquarium,45,2280,Bus stop Central
+Meiji Jingu,Shibuya,Tokyo,Shrine,30,0,JR Osaka Sta.
+Osaka Castle,Chuo,Osaka,Castle,45,600,—
+Senso-ji Temple,Taito,Tokyo,Temple,30,0,Metro Line A
+Dotonbori Canal Walk,Chuo,Osaka,District,60,0,Bus stop Central
+Itsukushima Shrine,Hatsukaichi,Hiroshima,Shrine,150,500,—
+Nara Park,Nara,Nara,Park,120,0,—
+Meiji Jingu,Shibuya,Tokyo,Shrine,30,0,Subway Line 2
+Tokyo Skytree,Sumida,Tokyo,Observation,30,2100,JR Osaka Sta.
+Senso-ji Temple,Taito,Tokyo,Temple,150,0,—
+Osaka Castle,Chuo,Osaka,Castle,30,800,—
+Fushimi Inari Taisha,Fushimi,Kyoto,Shrine,45,0,JR Tokyo Sta.
+Meiji Jingu,Shibuya,Tokyo,Shrine,90,0,JR Tokyo Sta.
+Otaru Canal,Otaru,Hokkaido,Scenic,120,0,Bus stop East Gate
+Nara Park,Nara,Nara,Park,60,0,—
+Ueno Zoo,Taito,Tokyo,Zoo,30,600,—
+Dotonbori Canal Walk,Chuo,Osaka,District,60,0,—
+Dotonbori Canal Walk,Chuo,Osaka,District,30,0,Bus stop East Gate
+Tokyo Skytree,Sumida,Tokyo,Observation,30,2200,JR Kyoto Sta.
+Himeji Castle,Himeji,Hyogo,Castle,60,1100,—
+Nara Park,Nara,Nara,Park,120,0,—
+Itsukushima Shrine,Hatsukaichi,Hiroshima,Shrine,45,300,Bus stop East Gate
+Itsukushima Shrine,Hatsukaichi,Hiroshima,Shrine,30,500,—
+Tokyo Skytree,Sumida,Tokyo,Observation,150,2300,JR Kyoto Sta.
+Senso-ji Temple,Taito,Tokyo,Temple,150,0,Bus stop Central
+Meiji Jingu,Shibuya,Tokyo,Shrine,120,0,—
+Okinawa Churaumi Aquarium,Motobu,Okinawa,Aquarium,120,2380,Bus stop Central
+Dotonbori Canal Walk,Chuo,Osaka,District,120,0,Tram Line A
+Senso-ji Temple,Taito,Tokyo,Temple,60,0,Bus stop East Gate
+Dotonbori Canal Walk,Chuo,Osaka,District,45,0,JR Shinjuku Sta.
+Dotonbori Canal Walk,Chuo,Osaka,District,60,0,JR Ueno Sta.
+Okinawa Churaumi Aquarium,Motobu,Okinawa,Aquarium,30,2180,Metro Line M
+Otaru Canal,Otaru,Hokkaido,Scenic,150,0,—
+Gion District,Higashiyama,Kyoto,District,60,0,JR Tokyo Sta.
+Tokyo Skytree,Sumida,Tokyo,Observation,45,2100,Bus stop East Gate
+Dotonbori Canal Walk,Chuo,Osaka,District,30,0,Bus stop East Gate
+Nara Park,Nara,Nara,Park,150,0,Subway Line A
+Okinawa Churaumi Aquarium,Motobu,Okinawa,Aquarium,30,2280,JR Shinjuku Sta.
+Himeji Castle,Himeji,Hyogo,Castle,60,1100,—
+Otaru Canal,Otaru,Hokkaido,Scenic,120,0,Metro Line 2
+Nara Park,Nara,Nara,Park,45,0,JR Osaka Sta.
+Okinawa Churaumi Aquarium,Motobu,Okinawa,Aquarium,150,2380,JR Kyoto Sta.
+Dotonbori Canal Walk,Chuo,Osaka,District,60,0,JR Ueno Sta.
+Ueno Zoo,Taito,Tokyo,Zoo,30,700,Metro Line 2
+Gion District,Higashiyama,Kyoto,District,45,0,—
+Tokyo Skytree,Sumida,Tokyo,Observation,30,2200,JR Nara Sta.
+Itsukushima Shrine,Hatsukaichi,Hiroshima,Shrine,45,300,—
+Meiji Jingu,Shibuya,Tokyo,Shrine,120,0,Bus stop Riverside
+Fushimi Inari Taisha,Fushimi,Kyoto,Shrine,90,0,—
+Itsukushima Shrine,Hatsukaichi,Hiroshima,Shrine,150,300,—
+Dotonbori Canal Walk,Chuo,Osaka,District,45,0,JR Osaka Sta.</script>
+  <script type="text/plain" id="ds_set2_tableB">PlaceTitle,Municipality,RegionLabel,Tag,TicketInfo,GeoCoord,BestSeason
+OKINAWA CHURAUMI AQUARIUM,MOTOBU,Okinawa,Aquarium,¥2280,38.03076 135.6414,Winter
+Nara Park,Nara-ku,Nara Pref.,park,Free,35.74364 125.67674,Spring
+Himeji Castle,HIMEJI,HYOGO,Castle attraction,1200 yen,39.70267 129.15719,Autumn
+OSAKA CASTLE,Chuo-ku,OSAKA,Castle attraction,800 yen,42.22748 131.76927,Autumn
+OKINAWA CHURAUMI AQUARIUM,Motobu-ku,OKINAWA,aquarium,2280 yen,40.4209 144.7016,Year-round
+Kenroku-en Garden,KANAZAWA,Ishikawa,Garden,JPY 520,24.0376 135.95658,Spring
+Gion District,HIGASHIYAMA,Kyoto,Historic District,¥0,32.5336 134.40501,Summer
+Kiyomizu dera,HIGASHIYAMA,Kyoto,Temple,¥400,36.00165 145.03431,Spring
+SENSO-JI TEMPLE,Taito,Tokyo,Temple,Free,43.8595 133.19294,Summer
+Fushimi Inari Taisha,Fushimi,Kyoto Pref.,Shrine,No charge,36.58304 129.02523,Spring
+GION DISTRICT,HIGASHIYAMA,Kyoto Pref.,district,¥0,26.62841 127.93158,Year-round
+Ueno Zoo,TAITO,Tokyo Pref.,Zoo attraction,¥600,43.2487 143.85814,Year-round
+OSAKA CASTLE,CHUO,Osaka,Castle attraction,JPY 700,39.61385 136.86535,Spring
+MEIJI JINGU,Shibuya-ku,Tokyo Pref.,Historic Shrine,¥0,37.89463 125.38143,Winter
+HIMEJI CASTLE,Himeji,Hyogo,Historic Castle,¥1100,36.73436 139.99989,Year-round
+UENO ZOO,Taito-ku,Tokyo,zoo,¥600,25.65839 143.51345,Winter
+Tokyo Skytree,SUMIDA,Tokyo,Historic Observation,2300 yen,44.55898 144.00364,Summer
+Ueno Zoo,Taito-ku,Tokyo,Historic Zoo,¥600,30.55914 140.68292,Summer
+Ueno Zoo,TAITO,Tokyo Pref.,zoo,¥700,24.23917 133.71391,Spring
+Nara Park,NARA,NARA,park,Free,30.7773 136.29856,Year-round
+Meiji Jingu,SHIBUYA,Tokyo Pref.,Shrine,No charge,32.17124 133.89229,Year-round
+FUSHIMI INARI TAISHA,Fushimi,Kyoto,Shrine attraction,Free,34.32769 132.91306,Year-round
+Senso ji Temple,Taito,TOKYO,temple,Free,33.4311 134.4089,Autumn
+Tokyo Skytree,Sumida-ku,TOKYO,Historic Observation,¥2200,34.97021 142.13003,Spring
+Kenroku en Garden,KANAZAWA,ISHIKAWA,Garden,¥320,27.70909 134.34113,Autumn
+Gion District,Higashiyama,Kyoto,District attraction,Free,42.89634 138.53527,Spring
+Ueno Zoo,Taito,Tokyo Pref.,Zoo attraction,¥700,40.82155 134.9659,Summer
+TOKYO SKYTREE,Sumida,Tokyo,Observation,¥2100,39.11868 135.91637,Spring
+Tokyo Skytree,Sumida-ku,TOKYO,observation,2300 yen,44.59373 144.44636,Spring
+NARA PARK,Nara-ku,Nara,Park,Free,40.31169 137.1299,Winter
+NARA PARK,NARA,Nara,Historic Park,Free,27.18063 123.39086,Spring
+Itsukushima Shr.,Hatsukaichi,HIROSHIMA,Shrine,¥500,33.85879 125.05822,Summer
+Tokyo Skytree,Sumida,Tokyo,Historic Observation,¥2100,30.19326 127.13868,Year-round
+OTARU CANAL,Otaru,Hokkaido,Historic Scenic,¥0,42.16278 135.47438,Year-round
+Gion District,HIGASHIYAMA,KYOTO,district,Free,32.10252 145.7192,Autumn
+Dotonbori Canal Walk,CHUO,Osaka,Historic District,Free,43.67415 132.16373,Winter
+OKINAWA CHURAUMI AQUARIUM,Motobu-ku,Okinawa,Aquarium,JPY 2180,31.59256 125.49905,Autumn
+Nara Park,Nara-ku,NARA,Park,No charge,35.65409 131.37453,Autumn
+OTARU CANAL,Otaru,Hokkaido Pref.,scenic,No charge,30.18523 140.23395,Year-round
+Dotonbori Canal Walk,CHUO,Osaka Pref.,District,Free,36.72019 133.79551,Summer
+Senso ji Temple,Taito-ku,Tokyo Pref.,Temple,Free,25.90893 127.89376,Spring
+Kenroku-en Garden,Kanazawa,ISHIKAWA,garden,¥420,34.40878 143.13773,Summer
+SENSO-JI TEMPLE,TAITO,Tokyo,Temple attraction,Free,40.36955 124.78253,Summer
+Senso ji Temple,Taito-ku,TOKYO,Temple,Free,38.2875 129.69074,Winter
+MEIJI JINGU,Shibuya-ku,Tokyo Pref.,Historic Shrine,¥0,38.74728 133.12485,Autumn
+Nara Park,Nara,NARA,Park attraction,¥0,31.13209 139.62718,Autumn
+Senso ji Temple,Taito,Tokyo,temple,¥0,43.01671 142.18253,Year-round
+Nara Park,Nara-ku,Nara,Park,¥0,30.49337 144.63587,Winter
+Tokyo Skytree,Sumida-ku,Tokyo,Historic Observation,¥2200,29.45432 131.51954,Spring
+Nara Park,Nara-ku,NARA,park,Free,41.36313 128.58696,Summer
+Itsukushima Shrine,HATSUKAICHI,HIROSHIMA,Historic Shrine,400 yen,29.58086 130.42587,Autumn
+Otaru Canal,Otaru,Hokkaido,Scenic,Free,31.094 125.56195,Spring
+Otaru Canal,Otaru,Hokkaido Pref.,Historic Scenic,Free,40.02362 138.51339,Summer
+Okinawa Churaumi Aquarium,Motobu-ku,Okinawa Pref.,Aquarium attraction,JPY 2380,40.05077 141.85891,Spring
+Itsukushima Shrine,Hatsukaichi-ku,Hiroshima Pref.,shrine,¥400,40.50981 144.27486,Spring
+Kiyomizu-dera,Higashiyama-ku,KYOTO,Historic Temple,400 yen,38.14705 134.26995,Autumn
+Okinawa Churaumi Aquarium,Motobu-ku,Okinawa,Aquarium attraction,JPY 2280,40.31472 129.1004,Winter
+Gion District,Higashiyama,KYOTO,district,No charge,42.2306 138.18972,Winter
+Nara Park,Nara,NARA,Park,¥0,43.50705 145.34774,Summer
+Fushimi Inari Taisha,FUSHIMI,Kyoto,Historic Shrine,No charge,28.27952 137.19015,Year-round
+TOKYO SKYTREE,Sumida,Tokyo Pref.,Historic Observation,2300 yen,38.91563 130.26868,Winter
+Kenroku-en Garden,Kanazawa,Ishikawa Pref.,Historic Garden,520 yen,35.69776 133.46983,Winter
+HIMEJI CASTLE,Himeji-ku,Hyogo Pref.,Historic Castle,1000 yen,37.89761 133.15223,Winter
+Senso ji Temple,Taito,Tokyo Pref.,Temple attraction,Free,41.52655 132.38295,Autumn
+Ueno Zoo,Taito,Tokyo,Zoo attraction,800 yen,41.98029 133.25178,Summer
+Tokyo Skytree,Sumida,TOKYO,Historic Observation,2100 yen,45.11596 139.5727,Winter
+Itsukushima Shr.,Hatsukaichi,Hiroshima,Shrine,¥500,41.87209 142.23185,Autumn
+OTARU CANAL,Otaru-ku,Hokkaido,scenic,No charge,44.12963 144.37162,Winter
+OKINAWA CHURAUMI AQUARIUM,Motobu-ku,Okinawa Pref.,Historic Aquarium,¥2380,37.87479 134.906,Autumn
+UENO ZOO,Taito,Tokyo,Zoo attraction,¥600,38.42934 128.92982,Summer
+Tokyo Skytree,SUMIDA,Tokyo,Observation,2300 yen,32.18633 126.50595,Year-round
+Osaka Castle,Chuo,Osaka,Castle attraction,JPY 800,36.41077 124.7219,Autumn
+Ueno Zoo,Taito-ku,TOKYO,Historic Zoo,JPY 800,43.4719 141.85262,Summer
+HIMEJI CASTLE,Himeji-ku,Hyogo,Historic Castle,¥1200,28.08682 140.27257,Year-round
+Fushimi Inari Taisha,Fushimi,KYOTO,shrine,¥0,41.54135 138.02859,Summer
+Senso ji Temple,Taito-ku,Tokyo,Temple attraction,Free,44.8886 123.44305,Summer
+KENROKU-EN GARDEN,KANAZAWA,Ishikawa Pref.,Garden attraction,320 yen,27.96615 124.07177,Winter
+Osaka Castle,Chuo-ku,Osaka,Historic Castle,700 yen,44.8984 145.30791,Autumn
+Gion District,HIGASHIYAMA,KYOTO,district,¥0,26.37603 124.1926,Year-round
+Okinawa Churaumi Aquarium,Motobu,Okinawa,aquarium,¥2380,27.64323 123.42335,Spring
+Osaka Castle,Chuo,Osaka,castle,700 yen,42.92234 131.88166,Winter
+UENO ZOO,Taito,TOKYO,zoo,JPY 700,27.12645 134.99565,Winter
+Otaru Canal,OTARU,Hokkaido Pref.,scenic,Free,31.17478 142.44631,Autumn
+Itsukushima Shrine,HATSUKAICHI,HIROSHIMA,Shrine,¥500,37.59009 132.45911,Year-round
+Osaka Castle,CHUO,Osaka Pref.,Historic Castle,¥700,39.20863 140.48772,Winter
+Nara Park,Nara-ku,Nara Pref.,Park,Free,42.28882 136.95427,Year-round
+Otaru Canal,Otaru-ku,Hokkaido Pref.,Historic Scenic,Free,26.54074 128.83366,Winter
+Okinawa Churaumi Aquarium,MOTOBU,Okinawa,Aquarium,2380 yen,24.30524 132.40161,Year-round
+Senso ji Temple,Taito,Tokyo Pref.,temple,Free,41.33179 145.51171,Summer
+Meiji Jingu,Shibuya-ku,TOKYO,Shrine,Free,24.71465 129.0238,Autumn
+Dotonbori Canal Walk,Chuo-ku,Osaka,District attraction,Free,33.71736 128.68789,Summer
+HIMEJI CASTLE,Himeji-ku,Hyogo Pref.,castle,1000 yen,30.34077 138.59307,Summer
+Kiyomizu dera,HIGASHIYAMA,Kyoto Pref.,Temple attraction,400 yen,36.56994 135.51753,Spring
+Kenroku-en Gdn.,Kanazawa-ku,Ishikawa Pref.,Historic Garden,420 yen,33.84881 128.0537,Autumn
+Otaru Canal,Otaru,Hokkaido,Scenic attraction,No charge,42.65965 126.65307,Summer
+KENROKU-EN GARDEN,KANAZAWA,Ishikawa Pref.,Garden attraction,420 yen,41.35592 131.07473,Spring
+NARA PARK,Nara-ku,Nara,Park,No charge,33.93329 125.56706,Spring
+FUSHIMI INARI TAISHA,FUSHIMI,Kyoto Pref.,shrine,Free,34.12468 134.00823,Spring
+Meiji Jingu,Shibuya-ku,Tokyo Pref.,shrine,No charge,26.39716 125.24355,Winter
+OSAKA CASTLE,Chuo-ku,Osaka,Castle,¥600,40.14583 143.61036,Autumn</script>
+  <script type="text/plain" id="ds_set2_desc">A_SpotName, Attraction/spot name in Table A.
+A_City, City/ward for the spot in Table A.
+A_Region, Prefecture/region in Table A.
+A_Category, Category label in Table A.
+A_VisitTimeMin, Typical visit time in minutes in Table A.
+A_AdmissionJPY, Admission fee in JPY in Table A (0 indicates free).
+A_NearestTransit, Nearest station/stop information in Table A.
+
+B_PlaceTitle, Place title in Table B (may be abbreviated or uppercased).
+B_Municipality, Municipality/ward in Table B (may include '-ku' suffix or casing variations).
+B_RegionLabel, Region label in Table B (may include 'Pref.' suffix).
+B_Tag, Category tag in Table B (may be a phrase rather than a single label).
+B_TicketInfo, Admission information in Table B (may include symbols or words like 'Free').
+B_GeoCoord, Geographic coordinates in Table B (latitude and longitude).
+B_BestSeason, Recommended visiting season in Table B.</script>
+  <script type="text/plain" id="ds_set2_match">SM
+A_SpotName, B_PlaceTitle
+A_City, B_Municipality
+A_Region, B_RegionLabel
+A_Category, B_Tag
+A_AdmissionJPY, B_TicketInfo
+
+ER
+A_6, B_9
+A_18, B_12
+A_27, B_30
+A_44, B_40
+A_58, B_66
+A_73, B_71
+A_91, B_88</script>
+
+  <script>
+    // Optional: set a submit endpoint to centrally collect answers (requires CORS + server)
+    // Example: const SUBMIT_ENDPOINT = 'https://script.google.com/macros/s/XXX/exec';
+    const SUBMIT_ENDPOINT = '';
+
+    const STORAGE_KEY = 'di_experiment_answers_v1';
+
+    // Datasets are read from script[type="text/plain"] blocks to avoid template-literal quoting issues.
+    const DATASETS = {
+      set1: {
+        label: 'Set 1: Restaurant Ingredient Procurement',
+        csv1: document.getElementById('ds_set1_tableA').textContent,
+        csv2: document.getElementById('ds_set1_tableB').textContent,
+        metadata: document.getElementById('ds_set1_desc').textContent,
+        match: document.getElementById('ds_set1_match').textContent
+      },
+      set2: {
+        label: 'Set 2: Tourism Attractions',
+        csv1: document.getElementById('ds_set2_tableA').textContent,
+        csv2: document.getElementById('ds_set2_tableB').textContent,
+        metadata: document.getElementById('ds_set2_desc').textContent,
+        match: document.getElementById('ds_set2_match').textContent
+      }
+    };
+
+    // Helper: parse CSV (simple; assumes no embedded newlines in fields)
+    function parseCSV(text) {
+      const rows = [];
+      const lines = String(text || '').replace(/\r/g, '').split('\n').filter(line => line.trim() !== '');
+      for (const line of lines) {
+        const values = [];
+        let current = '';
+        let inQuotes = false;
+        for (let i = 0; i < line.length; i++) {
+          const ch = line[i];
+          if (ch === '"') {
+            inQuotes = !inQuotes;
+          } else if (ch === ',' && !inQuotes) {
+            values.push(current);
+            current = '';
+          } else {
+            current += ch;
+          }
+        }
+        values.push(current);
+        rows.push(values);
+      }
+      return rows;
+    }
+
+    function displayCSV(containerId, data) {
+      const container = document.getElementById(containerId);
+      if (!data || data.length === 0) {
+        container.innerHTML = '<p>No data.</p>';
+        return;
+      }
+      const table = document.createElement('table');
+      const headerRow = document.createElement('tr');
+
+      const headerNumber = document.createElement('th');
+      headerNumber.className = 'row-number';
+      headerNumber.textContent = 'Row';
+      headerRow.appendChild(headerNumber);
+
+      data[0].forEach(col => {
+        const th = document.createElement('th');
+        th.textContent = col;
+        headerRow.appendChild(th);
+      });
+      table.appendChild(headerRow);
+
+      for (let i = 1; i < data.length; i++) {
+        const row = document.createElement('tr');
+
+        const rowNumber = document.createElement('th');
+        rowNumber.className = 'row-number';
+        rowNumber.scope = 'row';
+        rowNumber.textContent = i;
+        row.appendChild(rowNumber);
+
+        data[i].forEach(cell => {
+          const td = document.createElement('td');
+          td.textContent = cell;
+          row.appendChild(td);
+        });
+        table.appendChild(row);
+      }
+
+      container.innerHTML = '';
+      container.appendChild(table);
+    }
+
+    function displayText(containerId, text) {
+      document.getElementById(containerId).textContent = text || '';
+    }
+
+    function toast(msg) {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.classList.add('show');
+      setTimeout(() => el.classList.remove('show'), 1800);
+    }
+
+    function storageAvailable() {
+      try {
+        const x = '__test__';
+        localStorage.setItem(x, x);
+        localStorage.removeItem(x);
+        return true;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    function readAllAnswers() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function writeAllAnswers(all) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
+    }
+
+    let currentStage = 1; // 1-2 => set1, 3-4 => set2
+    function stageKey() {
+      // Stage 1-2: set1, Stage 3-4: set2
+      return currentStage <= 2 ? 'set1' : 'set2';
+    }
+
+    function currentDatasetLabel() {
+      const key = stageKey();
+      return DATASETS[key].label;
+    }
+
+    function findExistingAnswer(participantId, stage) {
+      const all = readAllAnswers();
+      return all.find(r => (r.participantId || '') === (participantId || '') && r.stage === stage) || null;
+    }
+
+    function preloadAnswersIfAny() {
+      const pid = document.getElementById('participantId').value.trim();
+      const existing = findExistingAnswer(pid, currentStage);
+      if (existing) {
+        document.getElementById('smAnswer').value = existing.sm || '';
+        document.getElementById('erAnswer').value = existing.er || '';
+        document.getElementById('saveStatus').textContent = 'Saved: ' + (existing.savedAt || '');
+      } else {
+        document.getElementById('saveStatus').textContent = '';
+      }
+    }
+
+    function loadStage() {
+      const key = stageKey();
+      const ds = DATASETS[key];
+
+      document.getElementById('stagePill').textContent = 'Stage ' + currentStage + ' / 4';
+      document.getElementById('datasetLabel').textContent = ds.label;
+
+      document.getElementById('tableWrapper1').innerHTML = '';
+      document.getElementById('tableWrapper2').innerHTML = '';
+      document.getElementById('metadataDisplay').textContent = '';
+      document.getElementById('matchDisplay').textContent = '';
+
+      displayCSV('tableWrapper1', parseCSV(ds.csv1));
+      displayCSV('tableWrapper2', parseCSV(ds.csv2));
+      displayText('metadataDisplay', ds.metadata);
+
+      const matchColumn = document.getElementById('matchColumn');
+// Matching Recommendation は Stage 1,3 で表示し、Stage 2,4 では「欄自体は残したまま」非表示（中身を空にする）
+const showMatch = (currentStage % 2 === 1); // 1,3
+// 欄（枠）は常に表示する
+matchColumn.style.display = '';
+if (showMatch) {
+  displayText('matchDisplay', ds.match);
+} else {
+  document.getElementById('matchDisplay').textContent = '';
+}
+
+const nextBtn = document.getElementById('nextBtn');
+      if (currentStage < 4) {
+        nextBtn.disabled = false;
+        nextBtn.textContent = 'Next';
+      } else {
+        nextBtn.disabled = true;
+        nextBtn.textContent = 'Next';
+      }
+
+preloadAnswersIfAny();
+    }
+
+    function buildRecord() {
+      const pid = document.getElementById('participantId').value.trim();
+      const sm = document.getElementById('smAnswer').value.trim();
+      const er = document.getElementById('erAnswer').value.trim();
+
+      return {
+        participantId: pid || '',
+        stage: currentStage,
+        datasetLabel: currentDatasetLabel(),
+        sm: sm,
+        er: er,
+        savedAt: new Date().toISOString(),
+        userAgent: navigator.userAgent
+      };
+    }
+
+    async function trySubmitToServer(record) {
+      if (!SUBMIT_ENDPOINT) return { ok: false, skipped: true, reason: 'No endpoint configured' };
+      try {
+        const res = await fetch(SUBMIT_ENDPOINT, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(record),
+          mode: 'cors'
+        });
+        if (!res.ok) return { ok: false, skipped: false, reason: 'HTTP ' + res.status };
+        return { ok: true, skipped: false };
+      } catch (e) {
+        return { ok: false, skipped: false, reason: String(e) };
+      }
+    }
+
+    function saveLocally(record) {
+      const all = readAllAnswers();
+      const idx = all.findIndex(r => (r.participantId || '') === (record.participantId || '') && r.stage === record.stage);
+      if (idx >= 0) all[idx] = record;
+      else all.push(record);
+      writeAllAnswers(all);
+    }
+
+    document.getElementById('submitAnswer').addEventListener('click', async () => {
+      const pid = document.getElementById('participantId').value.trim();
+      if (!pid) {
+        toast('Participant ID を入力してください');
+        document.getElementById('participantId').focus();
+        return;
+      }
+
+      const record = buildRecord();
+
+      if (storageAvailable()) {
+        saveLocally(record);
+        document.getElementById('saveStatus').textContent = 'Saved: ' + record.savedAt;
+        toast('Saved locally');
+      } else {
+        document.getElementById('storageWarning').style.display = 'block';
+        toast('Storage unavailable; please Copy answers');
+      }
+
+      const server = await trySubmitToServer(record);
+      if (server.ok) {
+        toast('Submitted to server');
+      } else if (!server.skipped) {
+        toast('Server submit failed (saved locally)');
+      }
+    });
+
+    document.getElementById('nextBtn').addEventListener('click', () => {
+      if (currentStage < 4) {
+        currentStage += 1;
+        document.getElementById('smAnswer').value = '';
+        document.getElementById('erAnswer').value = '';
+        document.getElementById('saveStatus').textContent = '';
+        loadStage();
+        window.scrollTo(0, 0);
+      }
+    });
+document.getElementById('participantId').addEventListener('input', () => {
+      preloadAnswersIfAny();
+    });
+
+    function downloadText(filename, content, mimeType) {
+      const blob = new Blob([content], { type: mimeType || 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 0);
+    }
+
+    document.getElementById('exportAll').addEventListener('click', () => {
+      const all = readAllAnswers();
+      const payload = {
+        exportedAt: new Date().toISOString(),
+        answers: all
+      };
+      downloadText('data_integration_answers.json', JSON.stringify(payload, null, 2), 'application/json');
+      toast('Exported');
+    });
+
+    document.getElementById('copyAll').addEventListener('click', async () => {
+      const all = readAllAnswers();
+      const payload = {
+        exportedAt: new Date().toISOString(),
+        answers: all
+      };
+      const text = JSON.stringify(payload, null, 2);
+      try {
+        await navigator.clipboard.writeText(text);
+        toast('Copied');
+      } catch (e) {
+        window.prompt('Copy the text below:', text);
+      }
+    });
+
+    document.getElementById('clearAll').addEventListener('click', () => {
+      if (!confirm('保存済み回答をすべて削除します。よろしいですか？')) return;
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+        document.getElementById('saveStatus').textContent = '';
+        toast('Cleared');
+      } catch (e) {
+        toast('Clear failed');
+      }
+    });
+
+    // Warn if navigating away with unsaved edits (best-effort)
+    let lastSavedSignature = '';
+    function currentSignature() {
+      const pid = document.getElementById('participantId').value.trim();
+      const sm = document.getElementById('smAnswer').value.trim();
+      const er = document.getElementById('erAnswer').value.trim();
+      return JSON.stringify([pid, currentStage, sm, er]);
+    }
+    setInterval(() => {
+      const pid = document.getElementById('participantId').value.trim();
+      if (!pid || !storageAvailable()) return;
+      const existing = findExistingAnswer(pid, currentStage);
+      if (existing) {
+        lastSavedSignature = JSON.stringify([pid, currentStage, existing.sm || '', existing.er || '']);
+      }
+    }, 1500);
+
+    window.addEventListener('beforeunload', (e) => {
+      const sig = currentSignature();
+      if (sig && lastSavedSignature && sig !== lastSavedSignature) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    });
+
+    // Init
+    if (!storageAvailable()) {
+      document.getElementById('storageWarning').style.display = 'block';
+    }
+    loadStage();
+  </script>
+</body>
+</html>
